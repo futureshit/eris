@@ -2,78 +2,54 @@ import requests
 import random
 import json
 import time
-import threading
+from rich.progress import Progress
 
-# Dateien mit der Wortliste und User-Agent-Liste
-wortliste_datei = 'diceware-dereko.txt'
+wordlist_datei = 'diceware-dereko.txt'
 useragents_datei = 'useragents.json'
 
-# Lese die User-Agent-Liste aus der JSON-Datei
 with open(useragents_datei, 'r', encoding='utf-8') as file:
     user_agents_data = json.load(file)
     user_agents = [entry['ua'] for entry in user_agents_data]
 
-# Lese die Wortliste aus der Datei und extrahiere nur die Wörter
-with open(wortliste_datei, 'r', encoding='utf-8') as file:
-    wortliste = [line.split('\t')[1] for line in file.read().splitlines()]
+with open(wordlist_datei, 'r', encoding='utf-8') as file:
+    wordlist = [line.split('\t')[1] for line in file.read().splitlines()]
 
-def zufaellige_suche():
-    while not stoppen:
-        # Wähle zufällig zwei Wörter aus
-        wort1 = random.choice(wortliste)
-        wort2 = random.choice(wortliste)
-
-        # Erstelle die Suchanfrage
-        suche = f"{wort1} {wort2}"
-
-        # Wähle zufällig Google oder Wikipedia
-        suchmaschine = random.choice(['google', 'wikipedia'])
-
-        if suchmaschine == 'google':
-            url = f"https://www.google.com/search?q={suche}"
+def random_search():
+    iteration = 1
+    while True:
+        print(f"\n[INFO] Iteration {iteration}")
+        iteration += 1
+        word = random.choice(wordlist)
+        search = f"{word}"
+        print(f"[INFO] Searchterm: \"{search}\"")
+        searchengine = random.choice(['google', 'wikipedia'])
+        if searchengine == 'google':
+            url = f"https://www.google.com/search?q={search}"
         else:
-            url = f"https://en.wikipedia.org/wiki/{suche.replace(' ', '_')}"
-
-        # Wähle zufällig einen User-Agent aus der Liste
+            url = f"https://en.wikipedia.org/wiki/{search.replace(' ', '_')}"
         user_agent = random.choice(user_agents)
-
-        # Setze den User-Agent-Header
         headers = {
             'User-Agent': user_agent
         }
-
-        # Führe die Anfrage aus und deaktiviere die Zertifikatsüberprüfung
         try:
-            response = requests.get(url, headers=headers, verify=False)
-            # Überprüfe den Statuscode der Antwort
+            response = requests.get(url, headers=headers, verify=True)
             if response.status_code == 200:
-                print(f"Anfrage an {suchmaschine} war erfolgreich.")
+                print(f"[SUCCESS] Request to {searchengine}")
+            elif response.status_code == 404:
+                print(f"[ERROR] Request to {searchengine} 404")
             else:
-                print(f"Anfrage an {suchmaschine} fehlgeschlagen mit Statuscode: {response.status_code}")
+                print(f"[ERROR] Request to {searchengine} {response.status_code}")
         except requests.exceptions.RequestException as e:
-            print(f"Anfrage an {suchmaschine} fehlgeschlagen: {e}")
+            print(f"[ERROR] Request to {searchengine} fail: {e}")
 
-        # Warte für einen zufälligen Zeitraum zwischen 1 und 30 Minuten
-        wartezeit = random.randint(1 * 60, 30 * 60)  # Zeit in Sekunden
-        time.sleep(wartezeit)
+        wait = random.randint(1 * 60, 30 * 60)
+        print(f"[INFO] Wait {wait // 60} min {wait % 60} sec for next search")
 
-# Funktion zum Beenden des Skripts
-def beenden():
-    global stoppen
-    input("Geben Sie 'Stopp' ein, um das Skript zu beenden: ")
-    stoppen = True
+        with Progress() as progress:
+            task = progress.add_task("[cyan]Wait...", total=wait)
+            for _ in range(wait):
+                time.sleep(1)
+                progress.update(task, advance=1)
 
-# Hauptprogramm
-stoppen = False
-
-# Starte den Such-Thread
-such_thread = threading.Thread(target=zufaellige_suche)
-such_thread.start()
-
-# Warten auf Stopp-Eingabe
-beenden()
-
-# Warten, bis der Such-Thread beendet ist
-such_thread.join()
-
-print("Das Skript wurde beendet.")
+if __name__ == "__main__":
+    random_search()
